@@ -46,12 +46,8 @@ window.addEventListener('DOMContentLoaded', () => {
 
 
 // ==========================================
-// CORE API HANDLER (PRESISI & TANPA SIMPLIFIKASI)
+// CORE API HANDLER (VIA VERCEL PROXY INTERNAL)
 // ==========================================
-const API_KEY = 'SK-pGFkFkE6Kb2HtQkYfivFTq7N';
-const API_BASE = 'https://www.free-restapi.biz.id/api';
-const CORS_PROXY = 'https://corsproxy.io/?';
-
 async function runApiTool(endpoint, inputId, paramKey, toolName) {
     const inputVal = document.getElementById(inputId).value.trim();
     if (!inputVal) {
@@ -60,31 +56,28 @@ async function runApiTool(endpoint, inputId, paramKey, toolName) {
 
     Swal.fire({ 
         title: 'Sedang Memproses...', 
-        text: `Mengambil data dari endpoint ${endpoint}...`,
+        text: `Menghubungkan ke server Vercel Proxy...`,
         allowOutsideClick: false, 
         didOpen: () => Swal.showLoading() 
     });
 
     try {
-        const targetUrl = `${API_BASE}/${endpoint}?${paramKey}=${encodeURIComponent(inputVal)}&apikey=${API_KEY}`;
-        const proxyUrl = CORS_PROXY + encodeURIComponent(targetUrl);
+        // Menembak endpoint Vercel Serverless Function sendiri
+        const targetUrl = `/api/proxy?endpoint=${endpoint}&${paramKey}=${encodeURIComponent(inputVal)}`;
         
-        const response = await fetch(proxyUrl);
-        if (!response.ok) throw new Error('Koneksi ke server API gagal');
+        const response = await fetch(targetUrl);
+        if (!response.ok) throw new Error('Gagal menghubungi server Vercel Proxy');
         
         const result = await response.json();
         
-        // Validasi respon gagal dari server API
-        if (result.status === false || result.code === 400 || result.code === 404) {
-            return Swal.fire('Gagal!', result.message || 'Data tidak ditemukan atau parameter salah.', 'error');
+        if (result.status === false || result.code === 400 || result.code === 404 || result.error) {
+            return Swal.fire('Gagal!', result.message || result.error || 'Data tidak ditemukan atau parameter salah.', 'error');
         }
 
         let htmlBody = '';
         const data = result.data || result.result || result;
 
-        // ==========================================
-        // 1. HANDLER KHUSUS TIKTOK STALKER (ttstalk)
-        // ==========================================
+        // 1. TikTok Stalker
         if (endpoint === 'ttstalk') {
             const profile = data.user || data.userInfo || data;
             const avatar = profile.avatar || profile.avatarLarger || profile.profile_pic || 'https://via.placeholder.com/100';
@@ -107,9 +100,7 @@ async function runApiTool(endpoint, inputId, paramKey, toolName) {
                 </div>
             `;
         }
-        // ==========================================
-        // 2. HANDLER KHUSUS REMOVE BG & HDR (removebg, hdr)
-        // ==========================================
+        // 2. Remove BG & HDR
         else if (endpoint === 'removebg' || endpoint === 'hdr') {
             const imageUrl = data.url || data.result || (typeof data === 'string' && data.startsWith('http') ? data : null);
 
@@ -128,11 +119,8 @@ async function runApiTool(endpoint, inputId, paramKey, toolName) {
                 htmlBody = `<p style="color:red; text-align:center;">URL gambar hasil proses tidak ditemukan dari server.</p>`;
             }
         }
-        // ==========================================
-        // 3. HANDLER DOWNLOADER (ttdl, igdl, ytmp3, ytmp4)
-        // ==========================================
+        // 3. Downloader Lainnya
         else {
-            // Ekstraksi tautan media secara berlapis agar tidak meleset
             let downloadLink = null;
 
             if (typeof data === 'string' && data.startsWith('http')) {
@@ -157,24 +145,22 @@ async function runApiTool(endpoint, inputId, paramKey, toolName) {
 
                 htmlBody = `
                     <div style="text-align:center; padding: 10px 0;">
-                        <p style="font-size:13px; color:#475569; margin-bottom:16px;">Media berhasil diekstrak dan siap diunduh ke perangkat Anda.</p>
+                        <p style="font-size:13px; color:#475569; margin-bottom:16px;">Media berhasil diekstrak dan siap diunduh.</p>
                         <a href="${downloadLink}" target="_blank" style="background:${btnColor}; color:white; padding:12px 24px; border-radius:8px; text-decoration:none; font-size:15px; font-weight:bold; display:inline-flex; align-items:center; gap:8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
                             ${icon} ${titleText}
                         </a>
                     </div>
                 `;
             } else {
-                // Tampilkan raw JSON jika struktur datanya sangat unik agar tetap terlihat oleh user
                 htmlBody = `
                     <div style="text-align:left; font-size:11px; max-height:220px; overflow-y:auto; background:#f1f5f9; padding:10px; border-radius:6px; color:#0f172a;">
-                        <p style="color:#b91c1c; font-weight:bold; margin-bottom:6px;">Format tautan tidak ter-mapping otomatis, struktur mentah:</p>
+                        <p style="color:#b91c1c; font-weight:bold; margin-bottom:6px;">Format tautan tidak ter-mapping otomatis:</p>
                         <pre style="margin:0; white-space:pre-wrap;">${JSON.stringify(result, null, 2)}</pre>
                     </div>
                 `;
             }
         }
 
-        // Munculkan hasil ke popup SweetAlert
         Swal.fire({
             title: `✅ ${toolName} Berhasil`,
             html: htmlBody,
@@ -186,7 +172,7 @@ async function runApiTool(endpoint, inputId, paramKey, toolName) {
 
     } catch (error) {
         console.error(error);
-        Swal.fire('Waduh Gagal!', 'Terjadi kesalahan koneksi, blokir CORS, atau server API sedang mengalami gangguan.', 'error');
+        Swal.fire('Waduh Gagal!', 'Terjadi kesalahan pada server proxy Vercel.', 'error');
     }
 }
 
@@ -250,4 +236,5 @@ if (document.getElementById('chartRequests')) {
         const threadEl = document.getElementById('threadVal'); if(threadEl) threadEl.innerText = Math.floor(Math.random() * 10) + 40;
         updateChart('chartThread');
     }, 1500);
-}
+                                  }
+        
