@@ -8,7 +8,6 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Fira+Code:wght@400;600&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     
-    <!-- CSS SAMA PERSIS SEPERTI INDEX.HTML -->
     <style>
         :root {
             --bg-base: #f8fafc; --bg-panel: #ffffff; --border: #e2e8f0;
@@ -40,7 +39,6 @@
         .header-brand { display: flex; align-items: center; gap: 12px; }
         .logo-box { background: var(--primary); color: white; padding: 6px 10px; border-radius: 6px; font-weight: 700; font-size: 14px; letter-spacing: 1px; }
         
-        /* NAV TABS */
         .nav-tabs-container { max-width: 1440px; margin: 24px auto 0; padding: 0 24px; display: flex; gap: 10px; width: 100%; }
         .nav-tab { padding: 10px 20px; background: var(--bg-panel); border: 1px solid var(--border); border-radius: 8px; font-weight: 600; font-size: 13px; color: var(--text-muted); text-decoration: none; display: inline-block; transition: 0.3s; }
         .nav-tab:hover { border-color: var(--primary); color: var(--primary); }
@@ -52,7 +50,6 @@
         .panel { background: var(--bg-panel); border: 1px solid var(--border); border-radius: 12px; padding: 20px; box-shadow: var(--shadow-md); margin-bottom: 20px; }
         .panel-header { font-size: 12px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.8px; border-bottom: 1px solid var(--border); padding-bottom: 10px; margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center; }
 
-        /* TOOLS GRID */
         .tools-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px; }
         .tool-card { background: var(--bg-base); border: 1px solid var(--border); border-radius: 10px; padding: 16px; display: flex; flex-direction: column; gap: 12px; }
         .tool-header { display: flex; align-items: center; gap: 12px; }
@@ -60,16 +57,17 @@
         .tool-title h3 { font-size: 13px; margin-bottom: 2px; color: var(--text-main); }
         .tool-title p { font-size: 11px; color: var(--text-muted); }
         .tool-action { display: flex; gap: 8px; margin-top: auto; }
-        .form-control { flex: 1; padding: 10px 14px; border: 1px solid var(--border); border-radius: 8px; font-family: var(--font-sans); font-size: 13px; background: #f8fafc; }
+        .form-control { flex: 1; padding: 10px 14px; border: 1px solid var(--border); border-radius: 8px; font-family: var(--font-sans); font-size: 13px; background: #f8fafc; color: var(--text-main); }
+        .form-control:focus { outline: none; border-color: var(--primary); background: #fff; }
+        body.pink-theme .form-control { background: #240d20; color: #fdf2f8; border-color: #3d1434; }
         .btn-primary { padding: 10px 16px; background: var(--primary); color: #fff; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; transition: 0.2s; font-size: 13px; }
         .btn-primary:hover { background: var(--primary-hover); }
 
-        /* THEME CONTROLLER DI TOOLS */
         .video-slider-container { position: relative; width: 100%; border-radius: 8px; overflow: hidden; background: #0f172a; }
         .slides-wrapper { display: flex; transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1); width: 100%; }
         .slide-item { min-width: 100%; box-sizing: border-box; }
         .slide-item video { width: 100%; height: auto; max-height: 200px; object-fit: cover; display: block; }
-        .slider-btn { position: absolute; top: 50%; transform: translateY(-50%); background: rgba(15, 23, 42, 0.6); color: white; border: none; width: 32px; height: 32px; border-radius: 50%; cursor: pointer; display: flex; justify-content: center; align-items: center; backdrop-filter: blur(4px); transition: 0.2s; z-index: 10; }
+        .slider-btn { position: absolute; top: 50%; transform: translateY(-50%); background: rgba(15, 23, 42, 0.6); color: white; border: none; width: 32px; height: 32px; border-radius: 50%; cursor: pointer; display: flex; justify-content: center; align-items: center; z-index: 10; }
         .btn-prev { left: 8px; } .btn-next { right: 8px; }
         .slider-dots { position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%); display: flex; gap: 6px; z-index: 10; }
         .dot { width: 6px; height: 6px; border-radius: 50%; background: rgba(255,255,255,0.4); cursor: pointer; transition: 0.2s; }
@@ -85,15 +83,12 @@
         </div>
     </header>
 
-    <!-- LINK HALAMAN (TOOLS.HTML) -->
     <div class="nav-tabs-container">
         <a href="index.html" class="nav-tab">Primary Console</a>
         <a href="tools.html" class="nav-tab active">Utility Tools</a>
     </div>
 
     <main class="dashboard">
-        
-        <!-- PENGATUR TEMA & VIDEO -->
         <div class="panel">
             <div class="panel-header"><span>Theme Controller</span></div>
             <div class="video-slider-container">
@@ -110,7 +105,6 @@
             </div>
         </div>
 
-        <!-- PANEL 7 API TOOLS -->
         <div class="panel">
             <div class="panel-header">
                 <span>Free-RESTAPI Utility Collection</span>
@@ -118,7 +112,6 @@
             </div>
             
             <div class="tools-grid">
-                <!-- Tool 1: TikTok DL -->
                 <div class="tool-card">
                     <div class="tool-header"><div class="tool-icon">🎵</div><div class="tool-title"><h3>TikTok Downloader</h3><p>Unduh video TikTok no watermark.</p></div></div>
                     <div class="tool-action">
@@ -126,7 +119,7 @@
                         <button class="btn-primary" onclick="runApiTool('ttdl', 'ttdl-url', 'url', 'TikTok Downloader')">Ekstrak</button>
                     </div>
                 </div>
-                <!-- Tool 2: IG DL -->
+                
                 <div class="tool-card">
                     <div class="tool-header"><div class="tool-icon">📸</div><div class="tool-title"><h3>Instagram Downloader</h3><p>Unduh IG Reels / Posts.</p></div></div>
                     <div class="tool-action">
@@ -134,7 +127,7 @@
                         <button class="btn-primary" onclick="runApiTool('igdl', 'igdl-url', 'url', 'Instagram Downloader')">Ekstrak</button>
                     </div>
                 </div>
-                <!-- Tool 3: TikTok Stalk -->
+
                 <div class="tool-card">
                     <div class="tool-header"><div class="tool-icon">🕵️</div><div class="tool-title"><h3>TikTok Stalker</h3><p>Cek info profil user TikTok.</p></div></div>
                     <div class="tool-action">
@@ -142,7 +135,7 @@
                         <button class="btn-primary" onclick="runApiTool('ttstalk', 'ttstalk-user', 'username', 'TikTok Stalker')">Cari</button>
                     </div>
                 </div>
-                <!-- Tool 4: YT MP3 -->
+
                 <div class="tool-card">
                     <div class="tool-header"><div class="tool-icon">🎧</div><div class="tool-title"><h3>YouTube to MP3</h3><p>Ubah video YT jadi lagu MP3.</p></div></div>
                     <div class="tool-action">
@@ -150,7 +143,7 @@
                         <button class="btn-primary" onclick="runApiTool('ytmp3', 'ytmp3-url', 'url', 'YouTube MP3')">Convert</button>
                     </div>
                 </div>
-                <!-- Tool 5: YT MP4 -->
+
                 <div class="tool-card">
                     <div class="tool-header"><div class="tool-icon">🎬</div><div class="tool-title"><h3>YouTube to MP4</h3><p>Unduh video YouTube.</p></div></div>
                     <div class="tool-action">
@@ -158,7 +151,7 @@
                         <button class="btn-primary" onclick="runApiTool('ytmp4', 'ytmp4-url', 'url', 'YouTube MP4')">Ekstrak</button>
                     </div>
                 </div>
-                <!-- Tool 6: Remove BG -->
+
                 <div class="tool-card">
                     <div class="tool-header"><div class="tool-icon">✂️</div><div class="tool-title"><h3>Auto Remove BG</h3><p>Hapus background gambar.</p></div></div>
                     <div class="tool-action">
@@ -166,7 +159,7 @@
                         <button class="btn-primary" onclick="runApiTool('removebg', 'rbg-url', 'url', 'Remove Background')">Proses</button>
                     </div>
                 </div>
-                <!-- Tool 7: HDR -->
+
                 <div class="tool-card">
                     <div class="tool-header"><div class="tool-icon">✨</div><div class="tool-title"><h3>Image HDR Enhancer</h3><p>Pertajam resolusi gambar HD.</p></div></div>
                     <div class="tool-action">
