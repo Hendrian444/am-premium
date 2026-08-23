@@ -46,8 +46,12 @@ window.addEventListener('DOMContentLoaded', () => {
 
 
 // ==========================================
-// CORE API HANDLER (VIA VERCEL PROXY INTERNAL)
+// CORE API HANDLER (DENGAN PRATINJAU VIDEO)
 // ==========================================
+const API_KEY = 'SK-pGFkFkE6Kb2HtQkYfivFTq7N';
+const API_BASE = 'https://www.free-restapi.biz.id/api';
+const CORS_PROXY = 'https://corsproxy.io/?';
+
 async function runApiTool(endpoint, inputId, paramKey, toolName) {
     const inputVal = document.getElementById(inputId).value.trim();
     if (!inputVal) {
@@ -56,28 +60,30 @@ async function runApiTool(endpoint, inputId, paramKey, toolName) {
 
     Swal.fire({ 
         title: 'Sedang Memproses...', 
-        text: `Menghubungkan ke server Vercel Proxy...`,
+        text: `Mengekstrak data dari server...`,
         allowOutsideClick: false, 
         didOpen: () => Swal.showLoading() 
     });
 
     try {
-        // Menembak endpoint Vercel Serverless Function sendiri
-        const targetUrl = `/api/proxy?endpoint=${endpoint}&${paramKey}=${encodeURIComponent(inputVal)}`;
+        const targetUrl = `${API_BASE}/${endpoint}?${paramKey}=${encodeURIComponent(inputVal)}&apikey=${API_KEY}`;
+        const proxyUrl = CORS_PROXY + encodeURIComponent(targetUrl);
         
-        const response = await fetch(targetUrl);
-        if (!response.ok) throw new Error('Gagal menghubungi server Vercel Proxy');
+        const response = await fetch(proxyUrl);
+        if (!response.ok) throw new Error('Koneksi ke server gagal');
         
         const result = await response.json();
         
-        if (result.status === false || result.code === 400 || result.code === 404 || result.error) {
-            return Swal.fire('Gagal!', result.message || result.error || 'Data tidak ditemukan atau parameter salah.', 'error');
+        if (result.status === false || result.code === 400 || result.code === 404) {
+            return Swal.fire('Gagal!', result.message || 'Data tidak ditemukan atau link salah.', 'error');
         }
 
         let htmlBody = '';
         const data = result.data || result.result || result;
 
-        // 1. TikTok Stalker
+        // ==========================================
+        // 1. TIKTOK STALKER
+        // ==========================================
         if (endpoint === 'ttstalk') {
             const profile = data.user || data.userInfo || data;
             const avatar = profile.avatar || profile.avatarLarger || profile.profile_pic || 'https://via.placeholder.com/100';
@@ -100,7 +106,9 @@ async function runApiTool(endpoint, inputId, paramKey, toolName) {
                 </div>
             `;
         }
-        // 2. Remove BG & HDR
+        // ==========================================
+        // 2. REMOVE BG & HDR (GAMBAR)
+        // ==========================================
         else if (endpoint === 'removebg' || endpoint === 'hdr') {
             const imageUrl = data.url || data.result || (typeof data === 'string' && data.startsWith('http') ? data : null);
 
@@ -110,16 +118,53 @@ async function runApiTool(endpoint, inputId, paramKey, toolName) {
                         <div style="margin-bottom: 12px; border: 1px solid #cbd5e1; border-radius: 8px; padding: 4px; background: #f8fafc; max-height: 280px; overflow: hidden; display: flex; justify-content: center; align-items: center;">
                             <img src="${imageUrl}" style="max-width: 100%; max-height: 260px; border-radius: 6px; object-fit: contain;">
                         </div>
-                        <a href="${imageUrl}" target="_blank" style="background:#2563eb; color:white; padding:10px 20px; border-radius:8px; text-decoration:none; font-size:14px; font-weight:bold; display:inline-block; box-shadow: 0 4px 6px rgba(37,99,235,0.2);">
+                        <a href="${imageUrl}" target="_blank" style="background:#2563eb; color:white; padding:10px 20px; border-radius:8px; text-decoration:none; font-size:14px; font-weight:bold; display:inline-block;">
                             📥 Download / Buka Gambar HD
                         </a>
                     </div>
                 `;
             } else {
-                htmlBody = `<p style="color:red; text-align:center;">URL gambar hasil proses tidak ditemukan dari server.</p>`;
+                htmlBody = `<p style="color:red; text-align:center;">URL gambar tidak ditemukan.</p>`;
             }
         }
-        // 3. Downloader Lainnya
+        // ==========================================
+        // 3. TIKTOK DOWNLOADER (TTDL) - DENGAN PEMUTAR VIDEO
+        // ==========================================
+        else if (endpoint === 'ttdl') {
+            let videoUrl = null;
+            let coverImg = data.cover || '';
+            let videoTitle = data.title || 'Video TikTok';
+
+            // Ambil video no watermark HD atau normal dari array videos
+            if (data.videos && Array.isArray(data.videos)) {
+                let hdVid = data.videos.find(v => v.type === 'nowatermark_hd');
+                let normalVid = data.videos.find(v => v.type === 'nowatermark');
+                let selected = hdVid || normalVid || data.videos[0];
+                if (selected) videoUrl = selected.url;
+            }
+
+            if (videoUrl) {
+                htmlBody = `
+                    <div style="text-align:center;">
+                        <div style="margin-bottom: 12px; background: #000; border-radius: 8px; overflow: hidden; max-height: 240px; display: flex; justify-content: center;">
+                            <video controls poster="${coverImg}" style="max-width: 100%; max-height: 220px; object-fit: contain;">
+                                <source src="${videoUrl}" type="video/mp4">
+                                Browser Anda tidak mendukung pemutar video.
+                            </video>
+                        </div>
+                        <p style="font-size:12px; color:#475569; margin-bottom:12px; text-align:left; line-height:1.4;"><b>Keterangan:</b> ${videoTitle}</p>
+                        <a href="${videoUrl}" target="_blank" style="background:#10b981; color:white; padding:12px 24px; border-radius:8px; text-decoration:none; font-size:14px; font-weight:bold; display:inline-flex; align-items:center; gap:8px;">
+                            📥 Download Video (No Watermark)
+                        </a>
+                    </div>
+                `;
+            } else {
+                htmlBody = `<p style="color:red; text-align:center;">Gagal mengambil tautan video TikTok.</p>`;
+            }
+        }
+        // ==========================================
+        // 4. DOWNLOADER UMUM LAINNYA (IGDL, YTMP3, YTMP4)
+        // ==========================================
         else {
             let downloadLink = null;
 
@@ -141,12 +186,23 @@ async function runApiTool(endpoint, inputId, paramKey, toolName) {
                 const isAudio = endpoint === 'ytmp3';
                 const btnColor = isAudio ? '#8b5cf6' : '#10b981';
                 const icon = isAudio ? '🎵' : '📥';
-                const titleText = isAudio ? 'Download File Audio (MP3)' : 'Download File Video / Media';
+                const titleText = isAudio ? 'Download File Audio (MP3)' : 'Download File Video';
+
+                let previewBlock = '';
+                if (!isAudio && (endpoint === 'ytmp4' || endpoint === 'igdl')) {
+                    previewBlock = `
+                        <div style="margin-bottom: 12px; background: #000; border-radius: 8px; overflow: hidden; max-height: 240px; display: flex; justify-content: center;">
+                            <video controls style="max-width: 100%; max-height: 220px; object-fit: contain;">
+                                <source src="${downloadLink}" type="video/mp4">
+                            </video>
+                        </div>
+                    `;
+                }
 
                 htmlBody = `
-                    <div style="text-align:center; padding: 10px 0;">
-                        <p style="font-size:13px; color:#475569; margin-bottom:16px;">Media berhasil diekstrak dan siap diunduh.</p>
-                        <a href="${downloadLink}" target="_blank" style="background:${btnColor}; color:white; padding:12px 24px; border-radius:8px; text-decoration:none; font-size:15px; font-weight:bold; display:inline-flex; align-items:center; gap:8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+                    <div style="text-align:center; padding: 5px 0;">
+                        ${previewBlock}
+                        <a href="${downloadLink}" target="_blank" style="background:${btnColor}; color:white; padding:12px 24px; border-radius:8px; text-decoration:none; font-size:14px; font-weight:bold; display:inline-flex; align-items:center; gap:8px;">
                             ${icon} ${titleText}
                         </a>
                     </div>
@@ -154,7 +210,6 @@ async function runApiTool(endpoint, inputId, paramKey, toolName) {
             } else {
                 htmlBody = `
                     <div style="text-align:left; font-size:11px; max-height:220px; overflow-y:auto; background:#f1f5f9; padding:10px; border-radius:6px; color:#0f172a;">
-                        <p style="color:#b91c1c; font-weight:bold; margin-bottom:6px;">Format tautan tidak ter-mapping otomatis:</p>
                         <pre style="margin:0; white-space:pre-wrap;">${JSON.stringify(result, null, 2)}</pre>
                     </div>
                 `;
@@ -167,7 +222,7 @@ async function runApiTool(endpoint, inputId, paramKey, toolName) {
             confirmButtonText: 'Tutup',
             confirmButtonColor: '#2563eb',
             background: '#ffffff',
-            width: endpoint === 'ttstalk' ? '420px' : '500px'
+            width: '460px'
         });
 
     } catch (error) {
@@ -236,5 +291,5 @@ if (document.getElementById('chartRequests')) {
         const threadEl = document.getElementById('threadVal'); if(threadEl) threadEl.innerText = Math.floor(Math.random() * 10) + 40;
         updateChart('chartThread');
     }, 1500);
-                                  }
-        
+                 }
+                    
