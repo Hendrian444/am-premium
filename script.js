@@ -46,11 +46,10 @@ window.addEventListener('DOMContentLoaded', () => {
 
 
 // ==========================================
-// UNIVERSAL API PARSER + CORS PROXY (100% WORK)
+// CORE API HANDLER (PRESISI & TANPA SIMPLIFIKASI)
 // ==========================================
 const API_KEY = 'SK-pGFkFkE6Kb2HtQkYfivFTq7N';
 const API_BASE = 'https://www.free-restapi.biz.id/api';
-// Menggunakan CORS Proxy agar request tembus dan tidak diblokir browser
 const CORS_PROXY = 'https://corsproxy.io/?';
 
 async function runApiTool(endpoint, inputId, paramKey, toolName) {
@@ -61,7 +60,7 @@ async function runApiTool(endpoint, inputId, paramKey, toolName) {
 
     Swal.fire({ 
         title: 'Sedang Memproses...', 
-        text: 'Mengirim request melalui proxy aman...',
+        text: `Mengambil data dari endpoint ${endpoint}...`,
         allowOutsideClick: false, 
         didOpen: () => Swal.showLoading() 
     });
@@ -71,87 +70,123 @@ async function runApiTool(endpoint, inputId, paramKey, toolName) {
         const proxyUrl = CORS_PROXY + encodeURIComponent(targetUrl);
         
         const response = await fetch(proxyUrl);
-        if (!response.ok) throw new Error('Gagal menghubungi server API');
+        if (!response.ok) throw new Error('Koneksi ke server API gagal');
         
         const result = await response.json();
-
-        let htmlBody = '';
-
-        function findUrlInObject(obj) {
-            if (!obj) return null;
-            if (typeof obj === 'string' && obj.startsWith('http')) return obj;
-            for (let key in obj) {
-                if (typeof obj[key] === 'string' && obj[key].startsWith('http')) {
-                    if (key.includes('url') || key.includes('link') || key.includes('download') || key.includes('hd') || key.includes('audio') || key.includes('video')) {
-                        return obj[key];
-                    }
-                }
-                if (typeof obj[key] === 'object') {
-                    let found = findUrlInObject(obj[key]);
-                    if (found) return found;
-                }
-            }
-            for (let key in obj) {
-                if (typeof obj[key] === 'string' && obj[key].startsWith('http')) return obj[key];
-            }
-            return null;
+        
+        // Validasi respon gagal dari server API
+        if (result.status === false || result.code === 400 || result.code === 404) {
+            return Swal.fire('Gagal!', result.message || 'Data tidak ditemukan atau parameter salah.', 'error');
         }
 
-        if (endpoint === 'ttstalk' && (result.data || result.result)) {
-            let p = result.data || result.result;
-            let avatar = p.avatar || p.profile_pic || p.pp || 'https://via.placeholder.com/100';
+        let htmlBody = '';
+        const data = result.data || result.result || result;
+
+        // ==========================================
+        // 1. HANDLER KHUSUS TIKTOK STALKER (ttstalk)
+        // ==========================================
+        if (endpoint === 'ttstalk') {
+            const profile = data.user || data.userInfo || data;
+            const avatar = profile.avatar || profile.avatarLarger || profile.profile_pic || 'https://via.placeholder.com/100';
+            const username = profile.uniqueId || profile.nickname || profile.username || inputVal;
+            const signature = profile.signature || profile.bio || 'Tidak ada deskripsi bio.';
+            const followers = profile.followerCount || profile.followers || 0;
+            const following = profile.followingCount || profile.following || 0;
+            const likes = profile.heartCount || profile.likes || profile.heart || 0;
+
             htmlBody = `
                 <div style="text-align:center; color:#0f172a;">
-                    <img src="${avatar}" style="width:100px; height:100px; border-radius:50%; margin-bottom:10px; border:3px solid #2563eb;">
-                    <h3 style="margin:0; font-size:18px;">${p.nickname || p.username || inputVal}</h3>
-                    <p style="font-size:13px; color:#64748b; margin-top:4px;">${p.signature || p.bio || 'Tidak ada bio'}</p>
-                    <div style="display:flex; justify-content:center; gap:20px; margin-top:15px; font-size:13px;">
-                        <div><b style="font-size:16px;">${p.followers || p.followerCount || 0}</b><br>Followers</div>
-                        <div><b style="font-size:16px;">${p.following || p.followingCount || 0}</b><br>Following</div>
-                        <div><b style="font-size:16px;">${p.likes || p.heart || p.heartCount || 0}</b><br>Likes</div>
+                    <img src="${avatar}" style="width:100px; height:100px; border-radius:50%; margin-bottom:12px; border:3px solid #2563eb; object-fit:cover;">
+                    <h3 style="margin:0; font-size:18px; font-weight:bold;">@${username}</h3>
+                    <p style="font-size:13px; color:#64748b; margin-top:6px; line-height:1.4;">${signature}</p>
+                    <div style="display:flex; justify-content:center; gap:18px; margin-top:18px; padding-top:12px; border-top:1px solid #e2e8f0; font-size:13px;">
+                        <div><b style="font-size:15px; color:#2563eb;">${Number(followers).toLocaleString()}</b><br><span style="color:#64748b; font-size:11px;">Followers</span></div>
+                        <div><b style="font-size:15px; color:#2563eb;">${Number(following).toLocaleString()}</b><br><span style="color:#64748b; font-size:11px;">Following</span></div>
+                        <div><b style="font-size:15px; color:#2563eb;">${Number(likes).toLocaleString()}</b><br><span style="color:#64748b; font-size:11px;">Likes</span></div>
                     </div>
                 </div>
             `;
-        } 
+        }
+        // ==========================================
+        // 2. HANDLER KHUSUS REMOVE BG & HDR (removebg, hdr)
+        // ==========================================
         else if (endpoint === 'removebg' || endpoint === 'hdr') {
-            let imgUrl = findUrlInObject(result);
-            if (imgUrl) {
+            const imageUrl = data.url || data.result || (typeof data === 'string' && data.startsWith('http') ? data : null);
+
+            if (imageUrl) {
                 htmlBody = `
-                    <img src="${imgUrl}" style="max-width:100%; border-radius:8px; margin-bottom:15px; border:1px solid #e2e8f0;">
-                    <br><a href="${imgUrl}" target="_blank" style="background:#2563eb; color:white; padding:10px 20px; border-radius:6px; text-decoration:none; font-weight:bold; display:inline-block;">🔍 Buka Full Gambar</a>
-                `;
-            } else {
-                htmlBody = `<p style="color:red;">Gagal memuat URL gambar dari server.</p>`;
-            }
-        } 
-        else {
-            let mediaUrl = findUrlInObject(result);
-            if (mediaUrl) {
-                let btnColor = endpoint === 'ytmp3' ? '#8b5cf6' : '#10b981';
-                let icon = endpoint === 'ytmp3' ? '🎵' : '📥';
-                htmlBody = `
-                    <div style="margin-top:10px; text-align:center;">
-                        <p style="font-size:12px; color:#64748b; margin-bottom:10px;">Berhasil diekstrak oleh sistem!</p>
-                        <a href="${mediaUrl}" target="_blank" style="background:${btnColor}; color:white; padding:12px 24px; border-radius:8px; text-decoration:none; font-size:15px; font-weight:bold; display:inline-flex; align-items:center; gap:8px;">
-                            ${icon} Download File Sekarang
+                    <div style="text-align:center;">
+                        <div style="margin-bottom: 12px; border: 1px solid #cbd5e1; border-radius: 8px; padding: 4px; background: #f8fafc; max-height: 280px; overflow: hidden; display: flex; justify-content: center; align-items: center;">
+                            <img src="${imageUrl}" style="max-width: 100%; max-height: 260px; border-radius: 6px; object-fit: contain;">
+                        </div>
+                        <a href="${imageUrl}" target="_blank" style="background:#2563eb; color:white; padding:10px 20px; border-radius:8px; text-decoration:none; font-size:14px; font-weight:bold; display:inline-block; box-shadow: 0 4px 6px rgba(37,99,235,0.2);">
+                            📥 Download / Buka Gambar HD
                         </a>
                     </div>
                 `;
             } else {
-                htmlBody = `<p style="color:red;">Format data tidak dikenali atau link tidak valid.</p>`;
+                htmlBody = `<p style="color:red; text-align:center;">URL gambar hasil proses tidak ditemukan dari server.</p>`;
+            }
+        }
+        // ==========================================
+        // 3. HANDLER DOWNLOADER (ttdl, igdl, ytmp3, ytmp4)
+        // ==========================================
+        else {
+            // Ekstraksi tautan media secara berlapis agar tidak meleset
+            let downloadLink = null;
+
+            if (typeof data === 'string' && data.startsWith('http')) {
+                downloadLink = data;
+            } else if (data.url) {
+                downloadLink = data.url;
+            } else if (data.link) {
+                downloadLink = data.link;
+            } else if (data.download) {
+                downloadLink = data.download;
+            } else if (Array.isArray(data) && data.length > 0) {
+                downloadLink = data[0].url || data[0].link || data[0];
+            } else if (data.medias && Array.isArray(data.medias) && data.medias.length > 0) {
+                downloadLink = data.medias[0].url || data.medias[0].link;
+            }
+
+            if (downloadLink && typeof downloadLink === 'string' && downloadLink.startsWith('http')) {
+                const isAudio = endpoint === 'ytmp3';
+                const btnColor = isAudio ? '#8b5cf6' : '#10b981';
+                const icon = isAudio ? '🎵' : '📥';
+                const titleText = isAudio ? 'Download File Audio (MP3)' : 'Download File Video / Media';
+
+                htmlBody = `
+                    <div style="text-align:center; padding: 10px 0;">
+                        <p style="font-size:13px; color:#475569; margin-bottom:16px;">Media berhasil diekstrak dan siap diunduh ke perangkat Anda.</p>
+                        <a href="${downloadLink}" target="_blank" style="background:${btnColor}; color:white; padding:12px 24px; border-radius:8px; text-decoration:none; font-size:15px; font-weight:bold; display:inline-flex; align-items:center; gap:8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+                            ${icon} ${titleText}
+                        </a>
+                    </div>
+                `;
+            } else {
+                // Tampilkan raw JSON jika struktur datanya sangat unik agar tetap terlihat oleh user
+                htmlBody = `
+                    <div style="text-align:left; font-size:11px; max-height:220px; overflow-y:auto; background:#f1f5f9; padding:10px; border-radius:6px; color:#0f172a;">
+                        <p style="color:#b91c1c; font-weight:bold; margin-bottom:6px;">Format tautan tidak ter-mapping otomatis, struktur mentah:</p>
+                        <pre style="margin:0; white-space:pre-wrap;">${JSON.stringify(result, null, 2)}</pre>
+                    </div>
+                `;
             }
         }
 
+        // Munculkan hasil ke popup SweetAlert
         Swal.fire({
             title: `✅ ${toolName} Berhasil`,
             html: htmlBody,
             confirmButtonText: 'Tutup',
             confirmButtonColor: '#2563eb',
-            background: '#ffffff'
+            background: '#ffffff',
+            width: endpoint === 'ttstalk' ? '420px' : '500px'
         });
 
     } catch (error) {
-        Swal.fire('Waduh Gagal!', 'Terjadi kesalahan koneksi atau server API sedang sibuk.', 'error');
+        console.error(error);
+        Swal.fire('Waduh Gagal!', 'Terjadi kesalahan koneksi, blokir CORS, atau server API sedang mengalami gangguan.', 'error');
     }
 }
 
@@ -215,5 +250,4 @@ if (document.getElementById('chartRequests')) {
         const threadEl = document.getElementById('threadVal'); if(threadEl) threadEl.innerText = Math.floor(Math.random() * 10) + 40;
         updateChart('chartThread');
     }, 1500);
-        }
-            
+}
