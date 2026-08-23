@@ -46,34 +46,37 @@ window.addEventListener('DOMContentLoaded', () => {
 
 
 // ==========================================
-// UNIVERSAL API PARSER (100% WORK ANTI-GAGAL)
+// UNIVERSAL API PARSER + CORS PROXY (100% WORK)
 // ==========================================
 const API_KEY = 'SK-pGFkFkE6Kb2HtQkYfivFTq7N';
 const API_BASE = 'https://www.free-restapi.biz.id/api';
+// Menggunakan CORS Proxy agar request tembus dan tidak diblokir browser
+const CORS_PROXY = 'https://corsproxy.io/?';
 
 async function runApiTool(endpoint, inputId, paramKey, toolName) {
     const inputVal = document.getElementById(inputId).value.trim();
     if (!inputVal) {
-        return Swal.fire('Oops!', 'Kolom input tidak boleh kosong!', 'warning');
+        return Swal.fire('Oops!', 'Kolom input tidak boleh kosong, Lek!', 'warning');
     }
 
     Swal.fire({ 
         title: 'Sedang Memproses...', 
-        text: 'Menghubungkan ke server API...',
+        text: 'Mengirim request melalui proxy aman...',
         allowOutsideClick: false, 
         didOpen: () => Swal.showLoading() 
     });
 
     try {
-        const requestUrl = `${API_BASE}/${endpoint}?${paramKey}=${encodeURIComponent(inputVal)}&apikey=${API_KEY}`;
-        const response = await fetch(requestUrl);
+        const targetUrl = `${API_BASE}/${endpoint}?${paramKey}=${encodeURIComponent(inputVal)}&apikey=${API_KEY}`;
+        const proxyUrl = CORS_PROXY + encodeURIComponent(targetUrl);
         
-        if (!response.ok) throw new Error('Network response was not ok');
+        const response = await fetch(proxyUrl);
+        if (!response.ok) throw new Error('Gagal menghubungi server API');
+        
         const result = await response.json();
 
         let htmlBody = '';
 
-        // Fungsi pembantu cerdas untuk mencari link URL di dalam JSON acak
         function findUrlInObject(obj) {
             if (!obj) return null;
             if (typeof obj === 'string' && obj.startsWith('http')) return obj;
@@ -88,14 +91,12 @@ async function runApiTool(endpoint, inputId, paramKey, toolName) {
                     if (found) return found;
                 }
             }
-            // Cari string url umum jika key spesifik tidak ketemu
             for (let key in obj) {
                 if (typeof obj[key] === 'string' && obj[key].startsWith('http')) return obj[key];
             }
             return null;
         }
 
-        // Penanganan Khusus Stalker TikTok
         if (endpoint === 'ttstalk' && (result.data || result.result)) {
             let p = result.data || result.result;
             let avatar = p.avatar || p.profile_pic || p.pp || 'https://via.placeholder.com/100';
@@ -112,7 +113,6 @@ async function runApiTool(endpoint, inputId, paramKey, toolName) {
                 </div>
             `;
         } 
-        // Penanganan Khusus RemoveBG & HDR (Gambar)
         else if (endpoint === 'removebg' || endpoint === 'hdr') {
             let imgUrl = findUrlInObject(result);
             if (imgUrl) {
@@ -124,7 +124,6 @@ async function runApiTool(endpoint, inputId, paramKey, toolName) {
                 htmlBody = `<p style="color:red;">Gagal memuat URL gambar dari server.</p>`;
             }
         } 
-        // Penanganan Downloader (TikTok, IG, YTMP3, YTMP4)
         else {
             let mediaUrl = findUrlInObject(result);
             if (mediaUrl) {
@@ -143,7 +142,6 @@ async function runApiTool(endpoint, inputId, paramKey, toolName) {
             }
         }
 
-        // Tampilkan hasil akhir ke SweetAlert
         Swal.fire({
             title: `✅ ${toolName} Berhasil`,
             html: htmlBody,
@@ -217,4 +215,5 @@ if (document.getElementById('chartRequests')) {
         const threadEl = document.getElementById('threadVal'); if(threadEl) threadEl.innerText = Math.floor(Math.random() * 10) + 40;
         updateChart('chartThread');
     }, 1500);
-}
+        }
+            
