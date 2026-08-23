@@ -1,3 +1,133 @@
+// ==========================================
+// TAB NAVIGATION LOGIC
+// ==========================================
+function switchTab(event, tabId) {
+    document.querySelectorAll('.nav-tab').forEach(tab => tab.classList.remove('active'));
+    document.querySelectorAll('.tab-view').forEach(view => view.classList.remove('active'));
+    
+    event.currentTarget.classList.add('active');
+    document.getElementById('tab-' + tabId).classList.add('active');
+}
+
+function showMaintenanceAlert() {
+    Swal.fire({
+        icon: 'warning',
+        title: 'Sistem Maintenance',
+        text: 'Fitur ini sedang dalam perbaikan API. Silakan gunakan menu Utility Tools.'
+    });
+}
+
+// ==========================================
+// CORE API TOOLS LOGIC (NEW)
+// ==========================================
+const API_KEY = 'SK-pGFkFkE6Kb2HtQkYfivFTq7N';
+const API_BASE = 'https://www.free-restapi.biz.id/api';
+
+async function runApiTool(endpoint, inputId, paramKey, toolName) {
+    const inputVal = document.getElementById(inputId).value.trim();
+    if (!inputVal) {
+        return Swal.fire('Oops!', 'Kolom input nggak boleh kosong ya, Lek!', 'warning');
+    }
+
+    // Tampilkan loading screen
+    Swal.fire({ 
+        title: 'Sedang Memproses...', 
+        text: 'Tunggu sebentar, request sedang dikirim ke server...',
+        allowOutsideClick: false, 
+        didOpen: () => Swal.showLoading() 
+    });
+
+    try {
+        // Gabungkan URL API sesuai dokumentasi
+        const requestUrl = `${API_BASE}/${endpoint}?${paramKey}=${encodeURIComponent(inputVal)}&apikey=${API_KEY}`;
+        
+        const response = await fetch(requestUrl);
+        if (!response.ok) throw new Error('API Timeout / Error');
+        
+        const result = await response.json();
+        
+        // Cek status API (biasanya mengembalikan status true/200)
+        if (result.status === false || result.code === 400 || result.code === 404) {
+             return Swal.fire('Gagal!', result.message || 'Data tidak ditemukan atau limit API habis.', 'error');
+        }
+
+        // =====================================
+        // PARSER DATA PINTAR UNTUK UI SWEETALERT
+        // =====================================
+        let htmlBody = '';
+
+        // Deteksi apakah hasil balikan berupa URL Gambar (RemoveBG & HDR)
+        if (endpoint === 'removebg' || endpoint === 'hdr') {
+            // Biasanya API ini mengembalikan gambar di result.data atau result.url
+            let imgUrl = result.data?.url || result.data || result.url; 
+            if (typeof imgUrl === 'string' && imgUrl.startsWith('http')) {
+                htmlBody = `
+                    <img src="${imgUrl}" style="max-width:100%; border-radius:8px; margin-bottom:15px; border:1px solid #e2e8f0;">
+                    <br>
+                    <a href="${imgUrl}" target="_blank" style="background:#2563eb; color:white; padding:10px 20px; border-radius:6px; text-decoration:none; font-weight:bold; display:inline-block;">🔍 Buka Full Gambar</a>
+                `;
+            }
+        } 
+        // Deteksi Khusus Stalker (TikTok)
+        else if (endpoint === 'ttstalk' && result.data) {
+            let p = result.data;
+            let avatar = p.avatar || p.profile_pic || 'https://via.placeholder.com/100';
+            htmlBody = `
+                <div style="text-align:center; color:#0f172a;">
+                    <img src="${avatar}" style="width:100px; height:100px; border-radius:50%; margin-bottom:10px; border:3px solid #2563eb;">
+                    <h3 style="margin:0; font-size:18px;">${p.nickname || p.username || inputVal}</h3>
+                    <p style="font-size:13px; color:#64748b; margin-top:4px;">${p.signature || p.bio || 'Tidak ada bio'}</p>
+                    <div style="display:flex; justify-content:center; gap:20px; margin-top:15px; font-size:13px;">
+                        <div><b style="font-size:16px;">${p.followers || 0}</b><br>Followers</div>
+                        <div><b style="font-size:16px;">${p.following || 0}</b><br>Following</div>
+                        <div><b style="font-size:16px;">${p.likes || p.heart || 0}</b><br>Likes</div>
+                    </div>
+                </div>
+            `;
+        }
+        // Deteksi Downloader (TTDL, IGDL, YTMP3, YTMP4)
+        else {
+            // Mencari letak link download di dalam JSON hasil
+            let mediaUrl = result.data?.url || result.data?.link || result.data?.download || result.url || (typeof result.data === 'string' && result.data.startsWith('http') ? result.data : null);
+            
+            // Kalau misal IG ngasih array video
+            if (!mediaUrl && Array.isArray(result.data) && result.data.length > 0) {
+                mediaUrl = result.data[0].url || result.data[0].link;
+            }
+
+            if (mediaUrl && typeof mediaUrl === 'string' && mediaUrl.startsWith('http')) {
+                let btnColor = endpoint === 'ytmp3' ? '#8b5cf6' : '#10b981'; // MP3 Ungu, MP4 Hijau
+                let icon = endpoint === 'ytmp3' ? '🎵' : '📥';
+                htmlBody = `
+                    <div style="margin-top:10px;">
+                        <a href="${mediaUrl}" target="_blank" style="background:${btnColor}; color:white; padding:12px 24px; border-radius:8px; text-decoration:none; font-size:15px; font-weight:bold; display:inline-flex; align-items:center; gap:8px;">
+                            ${icon} Download File
+                        </a>
+                    </div>
+                `;
+            } else {
+                // Fallback kalau struktur JSON nggak kebaca otomatis (Tampilkan RAW Data biar tetep bisa disalin)
+                htmlBody = `<div style="text-align:left; font-size:11px; max-height:250px; overflow-y:auto; background:#f1f5f9; padding:12px; border-radius:6px; color:#0f172a;"><pre style="margin:0; white-space:pre-wrap;">${JSON.stringify(result, null, 2)}</pre></div>`;
+            }
+        }
+
+        // Tampilkan hasil sukses
+        Swal.fire({
+            title: `✅ ${toolName}`,
+            html: htmlBody,
+            confirmButtonText: 'Tutup',
+            confirmButtonColor: '#2563eb',
+            background: '#ffffff' // Fix agar popup tidak gelap kalau mode pink aktif
+        });
+
+    } catch (error) {
+        Swal.fire('Waduh Error!', 'Gagal menghubungi server API atau link yang kamu masukkan salah.', 'error');
+    }
+}
+
+// ==========================================
+// VIDEO SLIDER & THEME LOGIC
+// ==========================================
 let currentSlideIndex = 0;
 const wrapper = document.getElementById('slideWrapper');
 const dots = document.querySelectorAll('.dot');
@@ -28,6 +158,9 @@ function currentSlide(index) {
     updateSlidePosition();
 }
 
+// ==========================================
+// AUDIO LOGIC
+// ==========================================
 const bgMusic = document.getElementById('bgMusic');
 const audioToggleBtn = document.getElementById('audioToggleBtn');
 const audioStatusText = document.getElementById('audioStatusText');
@@ -44,6 +177,9 @@ function toggleMusicManual() {
     }
 }
 
+// ==========================================
+// BACKGROUND STREAM & CHARTS (MAINTENANCE)
+// ==========================================
 function generateHexLine() {
     const chars = '0123456789ABCDEF';
     let line = '0x';
@@ -59,10 +195,10 @@ setInterval(() => {
     if(!streamBox) return;
     const p = document.createElement('div');
     p.className = 'stream-line';
-    p.innerText = `[${new Date().toISOString().substring(11,23)}] PKT: ${generateHexLine()}`;
+    p.innerHTML = `[${new Date().toISOString().substring(11,23)}] <span style="color:var(--warning);">ERR_API_WAIT: ${generateHexLine()}</span>`;
     streamBox.prepend(p);
     if(streamBox.children.length > 15) streamBox.removeChild(streamBox.lastChild);
-}, 800);
+}, 1200);
 
 function createChartBars(containerId, count) {
     const container = document.getElementById(containerId);
@@ -96,168 +232,12 @@ setInterval(() => {
     updateChart('chartRequests');
     updateChart('chartSuccess');
     const cpuEl = document.getElementById('cpuVal');
-    if(cpuEl) cpuEl.innerText = Math.floor(Math.random() * 60) + 15;
+    if(cpuEl) cpuEl.innerText = Math.floor(Math.random() * 40) + 60; 
     updateChart('chartCpu');
     const threadEl = document.getElementById('threadVal');
-    if(threadEl) threadEl.innerText = Math.floor(Math.random() * 10) + 12;
+    if(threadEl) threadEl.innerText = Math.floor(Math.random() * 10) + 40;
     updateChart('chartThread');
     const latEl = document.getElementById('latencyVal');
-    if(latEl) latEl.innerText = `${Math.floor(Math.random() * 8) + 9}ms`;
+    if(latEl) latEl.innerText = `ERRms`;
 }, 1500);
-
-const SECRET_CODE = "ELITE2026";
-const MAX_LIMIT = 5;
-let currentLimit = MAX_LIMIT;
-
-function initLimit() {
-    const todayStr = new Date().toDateString();
-    let stored = JSON.parse(localStorage.getItem('am_elite_limit'));
-    if (!stored || stored.date !== todayStr) {
-        stored = { date: todayStr, count: MAX_LIMIT };
-        localStorage.setItem('am_elite_limit', JSON.stringify(stored));
-    }
-    const sesEl = document.getElementById('sessionVal');
-    if(sesEl) sesEl.innerText = `USR-${Math.random().toString(36).substring(2,6).toUpperCase()}`;
-    currentLimit = stored.count;
-    updateLimitUI();
-}
-
-function updateLimitUI() {
-    const badge = document.getElementById('limitBadge');
-    if(!badge) return;
-    if (currentLimit > 100) {
-        badge.innerText = "UNLIMITED";
-        badge.style.color = "var(--success)";
-    } else {
-        badge.innerText = `${currentLimit}/${MAX_LIMIT} Reqs`;
-        badge.style.color = currentLimit === 0 ? "var(--danger)" : "var(--primary)";
-    }
-}
-
-function decreaseLimit() {
-    if (currentLimit > 100) return;
-    currentLimit--;
-    let stored = JSON.parse(localStorage.getItem('am_elite_limit'));
-    stored.count = currentLimit;
-    localStorage.setItem('am_elite_limit', JSON.stringify(stored));
-    updateLimitUI();
-}
-
-function checkLimit() {
-    if (currentLimit <= 0) {
-        Swal.fire({
-            title: 'Quota Exceeded', text: 'Daily limit reached.', icon: 'warning',
-            input: 'password', inputPlaceholder: 'Enter Admin Key...',
-            showCancelButton: true, confirmButtonText: 'Authorize', confirmButtonColor: '#2563eb'
-        }).then((result) => {
-            if (result.value === SECRET_CODE) {
-                let stored = JSON.parse(localStorage.getItem('am_elite_limit'));
-                stored.count = 9999;
-                localStorage.setItem('am_elite_limit', JSON.stringify(stored));
-                currentLimit = 9999;
-                updateLimitUI();
-                Swal.fire({icon: 'success', title: 'Authorized'});
-            }
-        });
-        return false;
-    }
-    return true;
-}
-
-function updateGlobalStats() {
-    const launchDate = new Date('2026-08-16T00:00:00');
-    const now = new Date();
-    const hoursPassed = Math.max(0, Math.floor((now - launchDate) / 3600000));
-    const minutesPassed = now.getMinutes();
-
-    const currentVisitors = 1163 + (hoursPassed * 4) + Math.floor(minutesPassed / 5);
-    const currentSuccess = 373 + (hoursPassed * 1) + Math.floor(minutesPassed / 15);
-
-    const visEl = document.getElementById('visitorCount');
-    const sucEl = document.getElementById('successCount');
-    if(visEl) visEl.innerText = currentVisitors.toLocaleString('id-ID');
-    if(sucEl) sucEl.innerText = currentSuccess.toLocaleString('id-ID');
-}
-
-async function loadHistory() {
-    const list = document.getElementById('historyList');
-    if(!list) return;
-    try {
-        const response = await fetch('/api/history');
-        if (!response.ok) throw new Error('Network error');
-        const data = await response.json();
         
-        if(data.length === 0) {
-            list.innerHTML = `<div style="text-align:center; margin-top:20px; color:var(--text-muted);">No audit trails.</div>`;
-        } else {
-            list.innerHTML = data.map(item => `
-                <div class="log-entry">
-                    <div class="l-time">${item.time}</div>
-                    <div class="l-badge b-success">SUCCESS</div>
-                    <div class="l-msg">Token injected: ${item.email}</div>
-                </div>
-            `).join('');
-        }
-    } catch (error) {
-        list.innerHTML = `<div style="text-align:center; margin-top:20px; color:var(--text-muted);">Audit sync active.</div>`;
-    }
-}
-
-async function sendEmail() {
-    const isHuman = document.getElementById('robotCheck').checked;
-    if (!isHuman) {
-        return Swal.fire({ 
-            icon: 'warning', 
-            title: 'Verifikasi Diperlukan', 
-            text: 'Centang kotak "Saya bukan robot" terlebih dahulu!' 
-        });
-    }
-
-    if (!checkLimit()) return; 
-    const email = document.getElementById('email').value;
-    if (!email) return Swal.fire({ icon: 'warning', title: 'Error', text: 'Email required.' });
-
-    Swal.fire({ title: 'Connecting...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
-    try {
-        await fetch(`/api/send?email=${encodeURIComponent(email)}`);
-        Swal.fire({ icon: 'info', title: 'Request Sent', text: 'Check target email.' });
-    } catch(e) {
-        Swal.fire({ icon: 'error', title: 'Error', text: 'Server unreachable.' });
-    }
-}
-
-async function verifyAcc() {
-    const isHuman = document.getElementById('robotCheck').checked;
-    if (!isHuman) {
-        return Swal.fire({ 
-            icon: 'warning', 
-            title: 'Verifikasi Diperlukan', 
-            text: 'Centang kotak "Saya bukan robot" terlebih dahulu!' 
-        });
-    }
-
-    if (!checkLimit()) return; 
-    const email = document.getElementById('email').value;
-    const link = document.getElementById('magicLink').value;
-    
-    if (!email || !link) return Swal.fire({ icon: 'warning', title: 'Error', text: 'Both fields required.' });
-
-    Swal.fire({ title: 'Processing...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
-    try {
-        await fetch(`/api/verify?email=${encodeURIComponent(email)}&magicLink=${encodeURIComponent(link)}`);
-        decreaseLimit(); 
-        Swal.fire({ icon: 'success', title: 'Success', text: 'Premium script injected.' });
-        document.getElementById('magicLink').value = ''; 
-        loadHistory(); 
-        const successEl = document.getElementById('successCount');
-        if(successEl) successEl.innerText = (parseInt(successEl.innerText.replace(/\D/g, '')) + 1).toLocaleString('id-ID');
-    } catch(e) {
-        Swal.fire({ icon: 'error', title: 'Failed', text: 'Invalid or expired token.' });
-    }
-}
-
-initLimit(); 
-updateGlobalStats(); 
-setInterval(updateGlobalStats, 60000); 
-loadHistory();
-    
