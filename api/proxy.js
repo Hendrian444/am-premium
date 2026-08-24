@@ -1,5 +1,4 @@
 export default async function handler(req, res) {
-    // Header agar Vercel mengizinkan request dari frontend manapun
     res.setHeader('Access-Control-Allow-Credentials', true);
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS');
@@ -10,28 +9,18 @@ export default async function handler(req, res) {
         return;
     }
 
-    const { endpoint, ...queryParams } = req.query;
+    const { url } = req.query;
 
-    if (!endpoint) {
-        return res.status(400).json({ error: 'Endpoint is required' });
+    if (!url) {
+        return res.status(400).json({ error: 'Target URL is required' });
     }
 
-    const API_KEY = 'SK-pGFkFkE6Kb2HtQkYfivFTq7N';
-    const API_BASE = 'https://www.free-restapi.biz.id/api';
-
-    // Rangkai parameter ke API asli beserta API Key secara aman di server
-    const searchParams = new URLSearchParams({
-        ...queryParams,
-        apikey: API_KEY
-    });
-
-    const targetUrl = `${API_BASE}/${endpoint}?${searchParams.toString()}`;
-
     try {
-        const apiRes = await fetch(targetUrl);
+        // Meneruskan request ke URL API publik mana pun secara aman di server-side
+        const apiRes = await fetch(url);
         const data = await apiRes.json();
         return res.status(200).json(data);
     } catch (error) {
-        return res.status(500).json({ error: 'Gagal menghubungi server API', details: error.message });
+        return res.status(500).json({ error: 'Gagal mengambil data dari API publik', details: error.message });
     }
 }
