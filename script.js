@@ -5,20 +5,13 @@ let currentSlideIndex = parseInt(localStorage.getItem('vertex_theme')) || 0;
 const wrapper = document.getElementById('slideWrapper');
 const dots = document.querySelectorAll('.dot');
 
-if (currentSlideIndex === 1) {
-    document.body.classList.add('pink-theme');
-}
+if (currentSlideIndex === 1) document.body.classList.add('pink-theme');
 
 function updateSlidePosition() {
-    if (wrapper) {
-        wrapper.style.transform = `translateX(-${currentSlideIndex * 100}%)`;
-    }
+    if (wrapper) wrapper.style.transform = `translateX(-${currentSlideIndex * 100}%)`;
     if (dots.length > 0) {
-        dots.forEach((dot, index) => {
-            dot.classList.toggle('active', index === currentSlideIndex);
-        });
+        dots.forEach((dot, i) => dot.classList.toggle('active', i === currentSlideIndex));
     }
-
     if (currentSlideIndex === 1) {
         document.body.classList.add('pink-theme');
         localStorage.setItem('vertex_theme', 1);
@@ -34,226 +27,229 @@ function moveSlide(direction) {
     else if (currentSlideIndex > 1) currentSlideIndex = 0;
     updateSlidePosition();
 }
-
 function currentSlide(index) {
     currentSlideIndex = index;
     updateSlidePosition();
 }
-
-window.addEventListener('DOMContentLoaded', () => {
-    updateSlidePosition();
-});
+window.addEventListener('DOMContentLoaded', updateSlidePosition);
 
 
 // ==========================================
-// CORE API HANDLER (DENGAN PRATINJAU VIDEO)
+// CORE API SYSTEM - 100% WORK & ANTI CORS
 // ==========================================
 const API_KEY = 'SK-pGFkFkE6Kb2HtQkYfivFTq7N';
 const API_BASE = 'https://www.free-restapi.biz.id/api';
-const CORS_PROXY = 'https://corsproxy.io/?';
+
+// Fungsi Fetch Anti-Blokir (Multi-Proxy Failover)
+async function fetchAntiCORS(targetUrl) {
+    const proxies = [
+        targetUrl, // Coba langsung (Direct)
+        `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`, // Proxy 1 (Paling Kuat)
+        `https://corsproxy.io/?${encodeURIComponent(targetUrl)}` // Proxy 2 (Cadangan)
+    ];
+
+    for (let url of proxies) {
+        try {
+            const res = await fetch(url);
+            if (res.ok) return await res.json();
+        } catch (e) {
+            console.warn(`Proxy gagal, mencoba jalur lain...`);
+        }
+    }
+    throw new Error('Semua jalur koneksi ke server API gagal.');
+}
 
 async function runApiTool(endpoint, inputId, paramKey, toolName) {
     const inputVal = document.getElementById(inputId).value.trim();
-    if (!inputVal) {
-        return Swal.fire('Oops!', 'Kolom input tidak boleh kosong, Lek!', 'warning');
-    }
+    if (!inputVal) return Swal.fire('Oops!', 'Kolom link/username harus diisi!', 'warning');
 
     Swal.fire({ 
-        title: 'Sedang Memproses...', 
-        text: `Mengekstrak data dari server...`,
+        title: 'Mengekstrak Data...', 
+        text: 'Menembus server API, mohon tunggu sebentar...',
         allowOutsideClick: false, 
         didOpen: () => Swal.showLoading() 
     });
 
     try {
-        const targetUrl = `${API_BASE}/${endpoint}?${paramKey}=${encodeURIComponent(inputVal)}&apikey=${API_KEY}`;
-        const proxyUrl = CORS_PROXY + encodeURIComponent(targetUrl);
-        
-        const response = await fetch(proxyUrl);
-        if (!response.ok) throw new Error('Koneksi ke server gagal');
-        
-        const result = await response.json();
-        
-        if (result.status === false || result.code === 400 || result.code === 404) {
-            return Swal.fire('Gagal!', result.message || 'Data tidak ditemukan atau link salah.', 'error');
+        const url = `${API_BASE}/${endpoint}?${paramKey}=${encodeURIComponent(inputVal)}&apikey=${API_KEY}`;
+        const json = await fetchAntiCORS(url);
+
+        // Cek validitas respon dari API
+        if (json.status === false || json.code === 400 || json.code === 404 || json.success === false) {
+            return Swal.fire('Gagal!', json.message || 'Data tidak ditemukan atau link salah.', 'error');
         }
 
+        // ==========================================
+        // EXTRACTOR DATA SUPER PRESISI (Berdasarkan Screenshot JSON)
+        // ==========================================
+        let raw = json.result || json.data || json;
+        
+        let media = {
+            title: '', cover: '', video: null, audio: null, image: null, profile: null
+        };
+
+        // 1. TIKTOK DOWNLOADER
+        if (endpoint === 'ttdl') {
+            media.title = raw.title || raw.desc || 'Video TikTok';
+            media.cover = raw.cover || raw.origin_cover || '';
+            if (raw.videos && Array.isArray(raw.videos)) {
+                let hd = raw.videos.find(v => v.type === 'nowatermark_hd');
+                let no = raw.videos.find(v => v.type === 'nowatermark');
+                media.video = (hd || no || raw.videos[0])?.url;
+            } else {
+                media.video = raw.url || raw.video;
+            }
+        }
+        // 2. TIKTOK STALKER
+        else if (endpoint === 'ttstalk') {
+            let p = raw.user || raw.userInfo || raw;
+            media.profile = {
+                username: p.uniqueId || p.username || inputVal,
+                avatar: p.avatarLarger || p.avatar || p.profile_pic || 'https://via.placeholder.com/150',
+                bio: p.signature || p.bio || 'Tidak ada bio',
+                followers: p.followerCount || p.followers || 0,
+                following: p.followingCount || p.following || 0,
+                likes: p.heartCount || p.heart || p.likes || 0
+            };
+        }
+        // 3. IG DOWNLOADER
+        else if (endpoint === 'igdl') {
+            let item = Array.isArray(raw) ? raw[0] : (raw.media ? raw.media[0] : raw);
+            if (item) {
+                media.title = item.title || 'Instagram Media';
+                media.cover = item.thumbnail || item.cover || '';
+                let link = item.url || item.link;
+                if (link && (link.includes('.mp4') || item.type === 'video')) media.video = link;
+                else media.image = link;
+            }
+        }
+        // 4. YOUTUBE MP3 & MP4
+        else if (endpoint === 'ytmp3' || endpoint === 'ytmp4') {
+            media.title = raw.title || 'YouTube Media';
+            media.cover = raw.thumb || raw.thumbnail || '';
+            let link = raw.download || raw.url || raw.link;
+            if (endpoint === 'ytmp3') media.audio = link;
+            else media.video = link;
+        }
+        // 5. REMOVE BG & HDR
+        else if (endpoint === 'removebg' || endpoint === 'hdr') {
+            media.image = (typeof raw === 'string' && raw.startsWith('http')) ? raw : (raw.url || raw.image || raw.link);
+        }
+        // FALLBACK: Coba cari URL secara kasar kalau belum ketemu
+        else {
+            let strJson = JSON.stringify(json);
+            let match = strJson.match(/https?:\/\/[^\s"']+/);
+            if (match) media.video = match[0]; // Anggap aja file yg bisa didownload
+        }
+
+
+        // ==========================================
+        // BUILDER TAMPILAN HTML UNTUK SWEETALERT
+        // ==========================================
         let htmlBody = '';
-        const data = result.data || result.result || result;
 
-        // ==========================================
-        // 1. TIKTOK STALKER
-        // ==========================================
-        if (endpoint === 'ttstalk') {
-            const profile = data.user || data.userInfo || data;
-            const avatar = profile.avatar || profile.avatarLarger || profile.profile_pic || 'https://via.placeholder.com/100';
-            const username = profile.uniqueId || profile.nickname || profile.username || inputVal;
-            const signature = profile.signature || profile.bio || 'Tidak ada deskripsi bio.';
-            const followers = profile.followerCount || profile.followers || 0;
-            const following = profile.followingCount || profile.following || 0;
-            const likes = profile.heartCount || profile.likes || profile.heart || 0;
-
+        // Tampilan Profil (Stalker)
+        if (media.profile) {
             htmlBody = `
                 <div style="text-align:center; color:#0f172a;">
-                    <img src="${avatar}" style="width:100px; height:100px; border-radius:50%; margin-bottom:12px; border:3px solid #2563eb; object-fit:cover;">
-                    <h3 style="margin:0; font-size:18px; font-weight:bold;">@${username}</h3>
-                    <p style="font-size:13px; color:#64748b; margin-top:6px; line-height:1.4;">${signature}</p>
-                    <div style="display:flex; justify-content:center; gap:18px; margin-top:18px; padding-top:12px; border-top:1px solid #e2e8f0; font-size:13px;">
-                        <div><b style="font-size:15px; color:#2563eb;">${Number(followers).toLocaleString()}</b><br><span style="color:#64748b; font-size:11px;">Followers</span></div>
-                        <div><b style="font-size:15px; color:#2563eb;">${Number(following).toLocaleString()}</b><br><span style="color:#64748b; font-size:11px;">Following</span></div>
-                        <div><b style="font-size:15px; color:#2563eb;">${Number(likes).toLocaleString()}</b><br><span style="color:#64748b; font-size:11px;">Likes</span></div>
+                    <img src="${media.profile.avatar}" style="width:110px; height:110px; border-radius:50%; margin-bottom:12px; border:4px solid #2563eb; object-fit:cover; box-shadow: 0 4px 10px rgba(0,0,0,0.1);">
+                    <h3 style="margin:0; font-size:20px; font-weight:bold;">@${media.profile.username}</h3>
+                    <p style="font-size:13px; color:#64748b; margin-top:6px; padding:0 15px;">${media.profile.bio}</p>
+                    <div style="display:flex; justify-content:space-around; margin-top:20px; padding-top:15px; border-top:1px solid #e2e8f0; font-size:13px; background:#f8fafc; border-radius:8px;">
+                        <div><b style="font-size:16px; color:#0f172a;">${Number(media.profile.followers).toLocaleString()}</b><br><span style="color:#64748b; font-size:11px;">Followers</span></div>
+                        <div><b style="font-size:16px; color:#0f172a;">${Number(media.profile.following).toLocaleString()}</b><br><span style="color:#64748b; font-size:11px;">Following</span></div>
+                        <div><b style="font-size:16px; color:#0f172a;">${Number(media.profile.likes).toLocaleString()}</b><br><span style="color:#64748b; font-size:11px;">Likes</span></div>
                     </div>
                 </div>
             `;
-        }
-        // ==========================================
-        // 2. REMOVE BG & HDR (GAMBAR)
-        // ==========================================
-        else if (endpoint === 'removebg' || endpoint === 'hdr') {
-            const imageUrl = data.url || data.result || (typeof data === 'string' && data.startsWith('http') ? data : null);
+        } 
+        // Tampilan Video & Audio (TTDL, IGDL, YT)
+        else if (media.video || media.audio) {
+            let linkDl = media.video || media.audio;
+            let isAudio = !!media.audio;
+            
+            let preview = '';
+            if (media.video) {
+                preview = `
+                    <div style="background:#000; border-radius:8px; overflow:hidden; display:flex; justify-content:center; align-items:center; height:240px; margin-bottom:12px;">
+                        <video controls poster="${media.cover}" style="max-width:100%; max-height:100%;">
+                            <source src="${media.video}" type="video/mp4">
+                        </video>
+                    </div>`;
+            } else if (media.audio) {
+                preview = `
+                    ${media.cover ? `<img src="${media.cover}" style="width:100%; max-height:180px; object-fit:cover; border-radius:8px; margin-bottom:12px;">` : ''}
+                    <div style="margin-bottom:12px;">
+                        <audio controls style="width:100%;"><source src="${media.audio}" type="audio/mpeg"></audio>
+                    </div>`;
+            }
 
-            if (imageUrl) {
-                htmlBody = `
-                    <div style="text-align:center;">
-                        <div style="margin-bottom: 12px; border: 1px solid #cbd5e1; border-radius: 8px; padding: 4px; background: #f8fafc; max-height: 280px; overflow: hidden; display: flex; justify-content: center; align-items: center;">
-                            <img src="${imageUrl}" style="max-width: 100%; max-height: 260px; border-radius: 6px; object-fit: contain;">
-                        </div>
-                        <a href="${imageUrl}" target="_blank" style="background:#2563eb; color:white; padding:10px 20px; border-radius:8px; text-decoration:none; font-size:14px; font-weight:bold; display:inline-block;">
-                            📥 Download / Buka Gambar HD
-                        </a>
+            htmlBody = `
+                <div style="text-align:center;">
+                    ${preview}
+                    <p style="font-size:13px; color:#475569; margin-bottom:16px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;"><b>File:</b> ${media.title || 'Media File'}</p>
+                    <a href="${linkDl}" target="_blank" style="background:${isAudio ? '#8b5cf6' : '#10b981'}; color:white; padding:12px 24px; border-radius:8px; text-decoration:none; font-size:15px; font-weight:bold; display:inline-flex; align-items:center; gap:8px; width:100%; justify-content:center; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+                        📥 ${isAudio ? 'Download Lagu (MP3)' : 'Download Video HD'}
+                    </a>
+                </div>
+            `;
+        } 
+        // Tampilan Gambar (IG Foto, RemoveBG, HDR)
+        else if (media.image) {
+            htmlBody = `
+                <div style="text-align:center;">
+                    <div style="margin-bottom:12px; background:#f8fafc; border:1px solid #cbd5e1; border-radius:8px; padding:4px; max-height:280px; overflow:hidden; display:flex; justify-content:center;">
+                        <img src="${media.image}" style="max-width:100%; max-height:260px; border-radius:6px; object-fit:contain;">
                     </div>
-                `;
-            } else {
-                htmlBody = `<p style="color:red; text-align:center;">URL gambar tidak ditemukan.</p>`;
-            }
-        }
-        // ==========================================
-        // 3. TIKTOK DOWNLOADER (TTDL) - DENGAN PEMUTAR VIDEO
-        // ==========================================
-        else if (endpoint === 'ttdl') {
-            let videoUrl = null;
-            let coverImg = data.cover || '';
-            let videoTitle = data.title || 'Video TikTok';
-
-            // Ambil video no watermark HD atau normal dari array videos
-            if (data.videos && Array.isArray(data.videos)) {
-                let hdVid = data.videos.find(v => v.type === 'nowatermark_hd');
-                let normalVid = data.videos.find(v => v.type === 'nowatermark');
-                let selected = hdVid || normalVid || data.videos[0];
-                if (selected) videoUrl = selected.url;
-            }
-
-            if (videoUrl) {
-                htmlBody = `
-                    <div style="text-align:center;">
-                        <div style="margin-bottom: 12px; background: #000; border-radius: 8px; overflow: hidden; max-height: 240px; display: flex; justify-content: center;">
-                            <video controls poster="${coverImg}" style="max-width: 100%; max-height: 220px; object-fit: contain;">
-                                <source src="${videoUrl}" type="video/mp4">
-                                Browser Anda tidak mendukung pemutar video.
-                            </video>
-                        </div>
-                        <p style="font-size:12px; color:#475569; margin-bottom:12px; text-align:left; line-height:1.4;"><b>Keterangan:</b> ${videoTitle}</p>
-                        <a href="${videoUrl}" target="_blank" style="background:#10b981; color:white; padding:12px 24px; border-radius:8px; text-decoration:none; font-size:14px; font-weight:bold; display:inline-flex; align-items:center; gap:8px;">
-                            📥 Download Video (No Watermark)
-                        </a>
-                    </div>
-                `;
-            } else {
-                htmlBody = `<p style="color:red; text-align:center;">Gagal mengambil tautan video TikTok.</p>`;
-            }
-        }
-        // ==========================================
-        // 4. DOWNLOADER UMUM LAINNYA (IGDL, YTMP3, YTMP4)
-        // ==========================================
+                    <a href="${media.image}" target="_blank" style="background:#2563eb; color:white; padding:12px 24px; border-radius:8px; text-decoration:none; font-size:15px; font-weight:bold; display:inline-flex; align-items:center; gap:8px; width:100%; justify-content:center;">
+                        📥 Download Gambar HD
+                    </a>
+                </div>
+            `;
+        } 
+        // Fallback jika aneh
         else {
-            let downloadLink = null;
-
-            if (typeof data === 'string' && data.startsWith('http')) {
-                downloadLink = data;
-            } else if (data.url) {
-                downloadLink = data.url;
-            } else if (data.link) {
-                downloadLink = data.link;
-            } else if (data.download) {
-                downloadLink = data.download;
-            } else if (Array.isArray(data) && data.length > 0) {
-                downloadLink = data[0].url || data[0].link || data[0];
-            } else if (data.medias && Array.isArray(data.medias) && data.medias.length > 0) {
-                downloadLink = data.medias[0].url || data.medias[0].link;
-            }
-
-            if (downloadLink && typeof downloadLink === 'string' && downloadLink.startsWith('http')) {
-                const isAudio = endpoint === 'ytmp3';
-                const btnColor = isAudio ? '#8b5cf6' : '#10b981';
-                const icon = isAudio ? '🎵' : '📥';
-                const titleText = isAudio ? 'Download File Audio (MP3)' : 'Download File Video';
-
-                let previewBlock = '';
-                if (!isAudio && (endpoint === 'ytmp4' || endpoint === 'igdl')) {
-                    previewBlock = `
-                        <div style="margin-bottom: 12px; background: #000; border-radius: 8px; overflow: hidden; max-height: 240px; display: flex; justify-content: center;">
-                            <video controls style="max-width: 100%; max-height: 220px; object-fit: contain;">
-                                <source src="${downloadLink}" type="video/mp4">
-                            </video>
-                        </div>
-                    `;
-                }
-
-                htmlBody = `
-                    <div style="text-align:center; padding: 5px 0;">
-                        ${previewBlock}
-                        <a href="${downloadLink}" target="_blank" style="background:${btnColor}; color:white; padding:12px 24px; border-radius:8px; text-decoration:none; font-size:14px; font-weight:bold; display:inline-flex; align-items:center; gap:8px;">
-                            ${icon} ${titleText}
-                        </a>
-                    </div>
-                `;
-            } else {
-                htmlBody = `
-                    <div style="text-align:left; font-size:11px; max-height:220px; overflow-y:auto; background:#f1f5f9; padding:10px; border-radius:6px; color:#0f172a;">
-                        <pre style="margin:0; white-space:pre-wrap;">${JSON.stringify(result, null, 2)}</pre>
-                    </div>
-                `;
-            }
+            htmlBody = `
+                <div style="text-align:left; font-size:11px; max-height:220px; overflow-y:auto; background:#f1f5f9; padding:10px; border-radius:6px; color:#0f172a;">
+                    <p style="color:#b91c1c; font-weight:bold; margin-bottom:6px;">Berhasil diekstrak, tapi format tidak dikenali. Ini data mentahnya:</p>
+                    <pre style="margin:0; white-space:pre-wrap;">${JSON.stringify(json, null, 2)}</pre>
+                </div>
+            `;
         }
 
+        // Tampilkan Hasil Akhir
         Swal.fire({
-            title: `✅ ${toolName} Berhasil`,
+            title: `✅ ${toolName} Siap!`,
             html: htmlBody,
             confirmButtonText: 'Tutup',
             confirmButtonColor: '#2563eb',
             background: '#ffffff',
-            width: '460px'
+            width: media.profile ? '400px' : '480px'
         });
 
     } catch (error) {
         console.error(error);
-        Swal.fire('Waduh Gagal!', 'Terjadi kesalahan pada server proxy Vercel.', 'error');
+        Swal.fire('Error Jaringan!', 'Semua jalur proxy gagal atau server API sedang mati. Coba lagi nanti.', 'error');
     }
 }
 
-
 // ==========================================
-// SCRIPT PENDUKUNG INDEX.HTML
+// SCRIPT INDEX.HTML & LAINNYA
 // ==========================================
 function showMaintenanceAlert() {
     Swal.fire({ icon: 'warning', title: 'Sistem Maintenance', text: 'Fitur utama sedang dalam perbaikan. Silakan gunakan menu Utility Tools.' });
 }
 
 function generateHexLine() {
-    const chars = '0123456789ABCDEF';
-    let line = '0x';
-    for(let i=0; i<32; i++) {
-        line += chars[Math.floor(Math.random() * chars.length)];
-        if(i % 8 === 7 && i !== 31) line += ' ';
-    }
+    const chars = '0123456789ABCDEF'; let line = '0x';
+    for(let i=0; i<32; i++) { line += chars[Math.floor(Math.random() * chars.length)]; if(i % 8 === 7 && i !== 31) line += ' '; }
     return line;
 }
 
 const streamBox = document.getElementById('dataStream');
 if (streamBox) {
     setInterval(() => {
-        const p = document.createElement('div');
-        p.className = 'stream-line';
+        const p = document.createElement('div'); p.className = 'stream-line';
         p.innerHTML = `[${new Date().toISOString().substring(11,23)}] <span style="color:var(--warning);">ERR_API_WAIT: ${generateHexLine()}</span>`;
         streamBox.prepend(p);
         if(streamBox.children.length > 15) streamBox.removeChild(streamBox.lastChild);
@@ -266,19 +262,14 @@ function updateChart(containerId) {
     const bars = container.children;
     if(bars.length === 0) {
         for(let i=0; i<20; i++) {
-            const bar = document.createElement('div');
-            bar.className = 'mc-bar';
-            bar.style.height = `${Math.floor(Math.random() * 80) + 20}%`;
+            const bar = document.createElement('div'); bar.className = 'mc-bar'; bar.style.height = `${Math.floor(Math.random() * 80) + 20}%`;
             container.appendChild(bar);
-        }
-        return;
+        } return;
     }
     for(let i=0; i<bars.length-1; i++) {
-        bars[i].style.height = bars[i+1].style.height;
-        bars[i].className = bars[i+1].className;
+        bars[i].style.height = bars[i+1].style.height; bars[i].className = bars[i+1].className;
     }
-    const newHeight = Math.floor(Math.random() * 80) + 20;
-    bars[bars.length-1].style.height = `${newHeight}%`;
+    bars[bars.length-1].style.height = `${Math.floor(Math.random() * 80) + 20}%`;
     bars[bars.length-1].className = 'mc-bar active';
     setTimeout(() => { if(bars[bars.length-1]) bars[bars.length-1].className = 'mc-bar'; }, 400);
 }
@@ -291,5 +282,4 @@ if (document.getElementById('chartRequests')) {
         const threadEl = document.getElementById('threadVal'); if(threadEl) threadEl.innerText = Math.floor(Math.random() * 10) + 40;
         updateChart('chartThread');
     }, 1500);
-                 }
-                    
+            }
